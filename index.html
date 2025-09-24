@@ -1,0 +1,116 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Aplikasi Absensi</title>
+  <style>
+    body{font-family: Arial; max-width:600px; margin:20px auto; padding:10px;}
+    .hidden{display:none;}
+    input, select, button{padding:8px;margin:6px 0;width:100%}
+  </style>
+</head>
+<body>
+  <h2>Login</h2>
+  <form id="loginForm">
+    <input id="username" placeholder="username" required />
+    <input id="password" type="password" placeholder="password" required />
+    <button type="submit">Login</button>
+  </form>
+
+  <div id="absenArea" class="hidden">
+    <h2>Form Absensi</h2>
+    <p id="welcome"></p>
+    <input id="idPekerja" placeholder="Barcode ID Pekerja" required />
+    <input id="shift" placeholder="Shift (contoh: Shift 1)" required />
+    <select id="typeScan">
+      <option value="IN">Masuk</option>
+      <option value="OUT">Pulang</option>
+    </select>
+    <input id="tglKerja" type="date" required />
+    <button id="btnAbsen">Kirim Absensi</button>
+    <button id="btnLogout" style="margin-top:10px;">Logout</button>
+  </div>
+
+  <script>
+    // Ganti dengan URL Web App milikmu
+    const API_URL = "https://script.google.com/macros/s/AKfycbwdzlsW72j_616uFERn-mGiSSUrUJ4PF7Ry5FeCtSiW2alOTBATmwfBZELCZt44rPC7/exec";
+
+    async function apiPost(formObj){
+      const body = new URLSearchParams(formObj).toString();
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: {'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+        body: body
+      });
+      return res.json();
+    }
+
+    // LOGIN
+    document.getElementById('loginForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const u = document.getElementById('username').value.trim();
+      const p = document.getElementById('password').value;
+      const r = await apiPost({action:'login', username:u, password:p});
+      if (r.status==='ok'){
+        localStorage.setItem('token', r.token);
+        localStorage.setItem('username', r.username);
+        showAbsensi(r.fullname || r.username);
+      } else {
+        alert(r.error || 'Login gagal');
+      }
+    });
+
+    function showAbsensi(name){
+      document.getElementById('loginForm').classList.add('hidden');
+      document.getElementById('absenArea').classList.remove('hidden');
+      document.getElementById('welcome').innerText = 'Halo, ' + name;
+    }
+
+    // auto-login jika token ada
+    window.addEventListener('load', ()=>{
+      const token = localStorage.getItem('token');
+      const username = localStorage.getItem('username');
+      if (token && username) showAbsensi(username);
+    });
+
+    // SUBMIT ABSEN
+    document.getElementById('btnAbsen').addEventListener('click', async ()=>{
+      const token = localStorage.getItem('token');
+      if (!token){ alert('Silakan login dulu'); return; }
+
+      const idPekerja = document.getElementById('idPekerja').value.trim();
+      const shift = document.getElementById('shift').value.trim();
+      const typeScan = document.getElementById('typeScan').value;
+      const tglKerja = document.getElementById('tglKerja').value;
+
+      if (!idPekerja || !shift || !tglKerja){
+        alert('Lengkapi semua field'); return;
+      }
+
+      const r = await apiPost({
+        action:'attendance',
+        token:token,
+        idPekerja:idPekerja,
+        shift:shift,
+        typeScan:typeScan,
+        tglKerja:tglKerja
+      });
+      if (r.status==='ok'){
+        alert('Absensi berhasil ✅');
+      } else {
+        alert(r.error || 'Gagal absen');
+        if (r.error && r.error.toLowerCase().includes('token')) logout();
+      }
+    });
+
+    // LOGOUT
+    document.getElementById('btnLogout').addEventListener('click', logout);
+    function logout(){
+      localStorage.removeItem('token');
+      localStorage.removeItem('username');
+      location.reload();
+    }
+  </script>
+</body>
+</html>
