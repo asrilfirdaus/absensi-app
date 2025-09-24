@@ -1,116 +1,128 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="id">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8">
   <title>Aplikasi Absensi</title>
   <style>
-    body{font-family: Arial; max-width:600px; margin:20px auto; padding:10px;}
-    .hidden{display:none;}
-    input, select, button{padding:8px;margin:6px 0;width:100%}
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    .hidden {
+      display: none;
+    }
+    input, select, button {
+      margin: 5px 0;
+      padding: 8px;
+      width: 250px;
+    }
+    button {
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
-  <h2>Login</h2>
-  <form id="loginForm">
-    <input id="username" placeholder="username" required />
-    <input id="password" type="password" placeholder="password" required />
-    <button type="submit">Login</button>
-  </form>
+  <h1>Aplikasi Absensi</h1>
 
+  <!-- Form Login -->
+  <div id="loginArea">
+    <h2>Login</h2>
+    <input id="username" placeholder="Username">
+    <input id="password" type="password" placeholder="Password">
+    <button id="btnLogin">Login</button>
+  </div>
+
+  <!-- Form Absensi -->
   <div id="absenArea" class="hidden">
-    <h2>Form Absensi</h2>
+    <h2>Absensi</h2>
     <p id="welcome"></p>
-    <input id="idPekerja" placeholder="Barcode ID Pekerja" required />
-    <input id="shift" placeholder="Shift (contoh: Shift 1)" required />
+
+    <input id="idPekerja" placeholder="Barcode ID Pekerja" required>
+    <input id="shift" placeholder="Shift (contoh: Shift 1)" required>
     <select id="typeScan">
       <option value="IN">Masuk</option>
       <option value="OUT">Pulang</option>
     </select>
-    <input id="tglKerja" type="date" required />
+    <input id="tglKerja" type="date" required>
+
     <button id="btnAbsen">Kirim Absensi</button>
     <button id="btnLogout" style="margin-top:10px;">Logout</button>
   </div>
 
   <script>
-    // Ganti dengan URL Web App milikmu
-    const API_URL = "https://script.google.com/macros/s/AKfycbwdzlsW72j_616uFERn-mGiSSUrUJ4PF7Ry5FeCtSiW2alOTBATmwfBZELCZt44rPC7/exec";
+    // 👉 GANTI dengan URL Web App dari Apps Script (Deploy as Web App → URL)
+    const API_URL = "https://script.google.com/macros/s/AKfycbw1-rEYeSmJ3zi4x94MchAIZ4LaPJizJ0XAULcMIOOVmaQeC6wy_xSL7XYXy-wAQ3t3/exec";
 
-    async function apiPost(formObj){
-      const body = new URLSearchParams(formObj).toString();
+    async function apiPost(data) {
       const res = await fetch(API_URL, {
-        method: 'POST',
-        headers: {'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
-        body: body
+        method: "POST",
+        body: JSON.stringify(data),
+        headers: {"Content-Type": "application/json"}
       });
-      return res.json();
+      return await res.json();
     }
 
-    // LOGIN
-    document.getElementById('loginForm').addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const u = document.getElementById('username').value.trim();
-      const p = document.getElementById('password').value;
-      const r = await apiPost({action:'login', username:u, password:p});
-      if (r.status==='ok'){
-        localStorage.setItem('token', r.token);
-        localStorage.setItem('username', r.username);
-        showAbsensi(r.fullname || r.username);
-      } else {
-        alert(r.error || 'Login gagal');
+    function logout() {
+      localStorage.removeItem("token");
+      document.getElementById("loginArea").classList.remove("hidden");
+      document.getElementById("absenArea").classList.add("hidden");
+    }
+
+    document.getElementById("btnLogin").addEventListener("click", async ()=>{
+      const u = document.getElementById("username").value.trim();
+      const p = document.getElementById("password").value.trim();
+      try {
+        const r = await apiPost({action:"login", username:u, password:p});
+        if (r.token) {
+          localStorage.setItem("token", r.token);
+          document.getElementById("welcome").innerText = "Koordinator: " + u;
+          document.getElementById("loginArea").classList.add("hidden");
+          document.getElementById("absenArea").classList.remove("hidden");
+        } else {
+          alert(r.error || "Login gagal");
+        }
+      } catch(err) {
+        alert("Error: " + err);
       }
     });
 
-    function showAbsensi(name){
-      document.getElementById('loginForm').classList.add('hidden');
-      document.getElementById('absenArea').classList.remove('hidden');
-      document.getElementById('welcome').innerText = 'Halo, ' + name;
-    }
+    document.getElementById("btnAbsen").addEventListener("click", async ()=>{
+      const token = localStorage.getItem("token");
+      if (!token) { alert("Silakan login dulu"); return; }
 
-    // auto-login jika token ada
-    window.addEventListener('load', ()=>{
-      const token = localStorage.getItem('token');
-      const username = localStorage.getItem('username');
-      if (token && username) showAbsensi(username);
-    });
-
-    // SUBMIT ABSEN
-    document.getElementById('btnAbsen').addEventListener('click', async ()=>{
-      const token = localStorage.getItem('token');
-      if (!token){ alert('Silakan login dulu'); return; }
-
-      const idPekerja = document.getElementById('idPekerja').value.trim();
-      const shift = document.getElementById('shift').value.trim();
-      const typeScan = document.getElementById('typeScan').value;
-      const tglKerja = document.getElementById('tglKerja').value;
+      const idPekerja = document.getElementById("idPekerja").value.trim();
+      const shift = document.getElementById("shift").value.trim();
+      const typeScan = document.getElementById("typeScan").value;
+      const tglKerja = document.getElementById("tglKerja").value;
 
       if (!idPekerja || !shift || !tglKerja){
-        alert('Lengkapi semua field'); return;
+        alert("Lengkapi semua field");
+        return;
       }
 
-      const r = await apiPost({
-        action:'attendance',
-        token:token,
-        idPekerja:idPekerja,
-        shift:shift,
-        typeScan:typeScan,
-        tglKerja:tglKerja
-      });
-      if (r.status==='ok'){
-        alert('Absensi berhasil ✅');
-      } else {
-        alert(r.error || 'Gagal absen');
-        if (r.error && r.error.toLowerCase().includes('token')) logout();
+      try {
+        const r = await apiPost({
+          action:"attendance",
+          token:token,
+          idPekerja:idPekerja,
+          shift:shift,
+          typeScan:typeScan,
+          tglKerja:tglKerja
+        });
+        if (r.status === "ok") {
+          alert("Absensi berhasil ✅");
+        } else {
+          alert(r.error || "Gagal absen");
+          if (r.error && r.error.toLowerCase().includes("token")) {
+            logout();
+          }
+        }
+      } catch(err) {
+        alert("Error: " + err);
       }
     });
 
-    // LOGOUT
-    document.getElementById('btnLogout').addEventListener('click', logout);
-    function logout(){
-      localStorage.removeItem('token');
-      localStorage.removeItem('username');
-      location.reload();
-    }
+    document.getElementById("btnLogout").addEventListener("click", logout);
   </script>
 </body>
 </html>
